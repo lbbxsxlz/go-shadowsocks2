@@ -21,6 +21,7 @@ import (
 var config struct {
 	Verbose    bool
 	UDPTimeout time.Duration
+	TCPCork    bool
 }
 
 func main() {
@@ -38,6 +39,8 @@ func main() {
 		TCPTun     string
 		UDPTun     string
 		UDPSocks   bool
+		UDP        bool
+		TCP        bool
 		Plugin     string
 		PluginOpts string
 	}
@@ -57,6 +60,9 @@ func main() {
 	flag.StringVar(&flags.UDPTun, "udptun", "", "(client-only) UDP tunnel (laddr1=raddr1,laddr2=raddr2,...)")
 	flag.StringVar(&flags.Plugin, "plugin", "", "Enable SIP003 plugin. (e.g., v2ray-plugin)")
 	flag.StringVar(&flags.PluginOpts, "plugin-opts", "", "Set SIP003 plugin options. (e.g., \"server;tls;host=mydomain.me\")")
+	flag.BoolVar(&flags.UDP, "udp", false, "(server-only) enable UDP support")
+	flag.BoolVar(&flags.TCP, "tcp", true, "(server-only) enable TCP support")
+	flag.BoolVar(&config.TCPCork, "tcpcork", false, "coalesce writing first few packets")
 	flag.DurationVar(&config.UDPTimeout, "udptimeout", 5*time.Minute, "UDP tunnel timeout")
 	flag.Parse()
 
@@ -166,8 +172,12 @@ func main() {
 			log.Fatal(err)
 		}
 
-		go udpRemote(udpAddr, ciph.PacketConn)
-		go tcpRemote(addr, ciph.StreamConn)
+		if flags.UDP {
+			go udpRemote(udpAddr, ciph.PacketConn)
+		}
+		if flags.TCP {
+			go tcpRemote(addr, ciph.StreamConn)
+		}
 	}
 
 	sigCh := make(chan os.Signal, 1)
